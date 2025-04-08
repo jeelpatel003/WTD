@@ -1,0 +1,760 @@
+<?php
+/**
+ * End Semester File Submission Form with Enhanced UI
+ * 
+ * Features:
+ * - Modern, professional interface
+ * - Visual feedback and animations
+ * - Student name input field
+ * - Enrollment number with number-only validation
+ * - Course input field
+ * - Semester dropdown selection (1-10)
+ * - PDF file upload with size validation (max 400MB)
+ * - Submission handling with proper file storage
+ * - Form clearing after successful submission
+ */
+
+// Configuration
+define('UPLOAD_DIR', 'submissions/');
+define('LOG_FILE', 'logs/submission_log.txt');
+define('MAX_FILE_SIZE', 400 * 1024 * 1024); // 400MB
+
+// Create necessary directories if they don't exist
+if (!file_exists(UPLOAD_DIR)) {
+    mkdir(UPLOAD_DIR, 0755, true);
+}
+if (!file_exists(dirname(LOG_FILE))) {
+    mkdir(dirname(LOG_FILE), 0755, true);
+}
+
+// Function to log messages
+function logMessage($type, $message) {
+    $log_message = date('[Y-m-d H:i:s]') . " $type: $message" . PHP_EOL;
+    
+    if (!file_put_contents(LOG_FILE, $log_message, FILE_APPEND)) {
+        // If we can't write to log file, use PHP's error_log as fallback
+        error_log("Failed to write to log file. Message was: $type: $message");
+    }
+}
+
+// Process form submission
+$errors = [];
+$success = false;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validate student name
+    $studentName = trim($_POST['studentName'] ?? '');
+    if (empty($studentName)) {
+        $errors[] = 'Student name is required.';
+    }
+    
+    // Validate enrollment number
+    $enrollmentNumber = trim($_POST['enrollmentNumber'] ?? '');
+    if (empty($enrollmentNumber)) {
+        $errors[] = 'Enrollment number is required.';
+    } elseif (!preg_match('/^[0-9]+$/', $enrollmentNumber)) {
+        $errors[] = 'Enrollment number must contain only numbers.';
+    }
+    
+    // Validate course
+    $course = trim($_POST['course'] ?? '');
+    if (empty($course)) {
+        $errors[] = 'Course is required.';
+    }
+    
+    // Validate semester
+    $semester = trim($_POST['semester'] ?? '');
+    if (empty($semester)) {
+        $errors[] = 'Semester is required.';
+    } elseif (!in_array($semester, range(1, 10))) {
+        $errors[] = 'Please select a valid semester (1-10).';
+    }
+    
+    // Validate file upload
+    if (!isset($_FILES['semFile']) || $_FILES['semFile']['error'] === UPLOAD_ERR_NO_FILE) {
+        $errors[] = 'Please select a file to upload.';
+    } else {
+        $file = $_FILES['semFile'];
+        
+        // Check for upload errors
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            switch ($file['error']) {
+                case UPLOAD_ERR_INI_SIZE:
+                case UPLOAD_ERR_FORM_SIZE:
+                    $errors[] = 'The uploaded file exceeds the maximum allowed size.';
+                    break;
+                case UPLOAD_ERR_PARTIAL:
+                    $errors[] = 'The file was only partially uploaded.';
+                    break;
+                case UPLOAD_ERR_NO_TMP_DIR:
+                    $errors[] = 'Missing a temporary folder.';
+                    break;
+                case UPLOAD_ERR_CANT_WRITE:
+                    $errors[] = 'Failed to write file to disk.';
+                    break;
+                default:
+                    $errors[] = 'An error occurred during file upload.';
+            }
+        } else {
+            // Check file size
+            if ($file['size'] > MAX_FILE_SIZE) {
+                $errors[] = 'File size exceeds the maximum allowed size (400MB).';
+            }
+            
+            // Check file type
+            $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if ($fileExtension !== 'pdf') {
+                $errors[] = 'Only PDF files are allowed.';
+            }
+            
+            // If validation passes, process the upload
+            if (empty($errors)) {
+                // Create a unique filename
+                $filename = $enrollmentNumber . '_' . time() . '.pdf';
+                $uploadPath = UPLOAD_DIR . $filename;
+                
+                if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+                    // Save submission details to a file or database
+                    $submissionData = [
+                        'studentName' => $studentName,
+                        'enrollmentNumber' => $enrollmentNumber,
+                        'course' => $course,
+                        'semester' => $semester,
+                        'filename' => $filename,
+                        'submissionTime' => date('Y-m-d H:i:s')
+                    ];
+                    
+                    // Save to a CSV file for simplicity
+                    $csvFile = 'submissions/submissions.csv';
+                    $isNewFile = !file_exists($csvFile);
+                    
+                    $fp = fopen($csvFile, 'a');
+                    if ($isNewFile) {
+                        fputcsv($fp, array_keys($submissionData));
+                    }
+                    fputcsv($fp, $submissionData);
+                    fclose($fp);
+                    
+                    logMessage('INFO', "Submission received from $studentName ($enrollmentNumber) for $course, Semester $semester");
+                    $success = true;
+                    
+                    // Clear form fields after successful submission
+                    $studentName = '';
+                    $enrollmentNumber = '';
+                    $course = '';
+                    $semester = '';
+                } else {
+                    $errors[] = 'Failed to save the uploaded file.';
+                    logMessage('ERROR', "Failed to save file for $studentName ($enrollmentNumber)");
+                }
+            }
+        }
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End Semester File Submission</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2962ff;
+            --primary-light: #e3f2fd;
+            --primary-dark: #0039cb;
+            --success-color: #00c853;
+            --error-color: #f44336;
+            --text-color: #37474f;
+            --text-light: #78909c;
+            --background: #f5f7fa;
+            --card-bg: #ffffff;
+            --border-radius: 8px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 40px 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .form-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: var(--transition);
+            margin-bottom: 40px;
+        }
+        
+        .form-header {
+            background: var(--primary-color);
+            padding: 30px;
+            text-align: center;
+            color: white;
+            position: relative;
+        }
+        
+        .form-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .form-subtitle {
+            font-weight: 300;
+            font-size: 16px;
+            opacity: 0.8;
+        }
+        
+        .form-icon {
+            position: absolute;
+            top: -30px;
+            right: -30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            transform: rotate(-30deg);
+        }
+        
+        .form-content {
+            padding: 40px;
+        }
+        
+        .form-description {
+            background-color: var(--primary-light);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 30px;
+            border-left: 4px solid var(--primary-color);
+            font-size: 15px;
+        }
+        
+        .form-row {
+            margin-bottom: 25px;
+            position: relative;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 15px;
+            color: var(--text-color);
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px 20px;
+            border: 1px solid #dde2e8;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            transition: var(--transition);
+            color: var(--text-color);
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1);
+        }
+        
+        .form-input.error {
+            border-color: var(--error-color);
+        }
+        
+        .input-icon {
+            position: absolute;
+            right: 15px;
+            top: 47px;
+            color: var(--text-light);
+        }
+        
+        .select-wrapper {
+            position: relative;
+        }
+
+        select.form-input {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            padding-right: 40px;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378909c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 15px;
+        }
+
+        select.form-input:focus {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232962ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        }
+        
+        .file-input-container {
+            position: relative;
+            overflow: hidden;
+            border: 2px dashed #dde2e8;
+            padding: 30px;
+            text-align: center;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .file-input-container:hover {
+            border-color: var(--primary-color);
+            background-color: rgba(41, 98, 255, 0.02);
+        }
+        
+        .file-input-container input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-icon {
+            font-size: 40px;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .file-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .file-helper {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .file-selected {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .file-selected.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            word-break: break-all;
+        }
+        
+        .file-size {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+        
+        .submit-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 16px 30px;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 10px;
+            transition: var(--transition);
+            width: 100%;
+            text-align: center;
+        }
+        
+        .submit-btn:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(41, 98, 255, 0.15);
+        }
+        
+        .success-message {
+            background-color: rgba(0, 200, 83, 0.1);
+            color: var(--success-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 30px;
+            border-left: 4px solid var(--success-color);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            animation: slideDown 0.5s;
+        }
+        
+        .success-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+        
+        .error-message {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: var(--error-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 30px;
+            border-left: 4px solid var(--error-color);
+            animation: shakeX 0.5s;
+        }
+        
+        .error-list {
+            margin-top: 10px;
+            margin-left: 20px;
+        }
+        
+        .error-list li {
+            margin-bottom: 5px;
+        }
+        
+        .required {
+            color: var(--error-color);
+            margin-left: 3px;
+        }
+        
+        .form-footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: var(--text-light);
+            font-size: 14px;
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideDown {
+            from { 
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes shakeX {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .form-content {
+                padding: 30px 20px;
+            }
+            
+            .form-header {
+                padding: 20px;
+            }
+            
+            .form-title {
+                font-size: 24px;
+            }
+            
+            .form-icon {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-card">
+            <div class="form-header">
+                <h1 class="form-title">End Semester Submission</h1>
+                <p class="form-subtitle">Submit your final project files</p>
+                <div class="form-icon">
+                    <i class="fas fa-file-pdf"></i>
+                </div>
+            </div>
+            
+            <div class="form-content">
+                <?php if ($success): ?>
+                    <div class="success-message">
+                        <i class="fas fa-check-circle success-icon"></i>
+                        <p>Your submission has been received successfully! Thank you.</p>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (!empty($errors)): ?>
+                    <div class="error-message">
+                        <p><i class="fas fa-exclamation-circle"></i> Please correct the following errors:</p>
+                        <ul class="error-list">
+                            <?php foreach ($errors as $error): ?>
+                                <li><?php echo htmlspecialchars($error); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+                
+                <div class="form-description">
+                    <p>This form is to submit your end semester project/assignment file. Please ensure all details are correct before submission.</p>
+                </div>
+                
+                <form id="submissionForm" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST" enctype="multipart/form-data">
+                    <div class="form-row">
+                        <label class="form-label" for="studentName">Student Name<span class="required">*</span></label>
+                        <input type="text" class="form-input" id="studentName" name="studentName" value="<?php echo htmlspecialchars($studentName ?? ''); ?>" placeholder="Enter your full name" required>
+                        <span class="input-icon"><i class="fas fa-user"></i></span>
+                    </div>
+                    
+                    <div class="form-row">
+                        <label class="form-label" for="enrollmentNumber">Enrollment Number<span class="required">*</span></label>
+                        <input type="text" class="form-input" id="enrollmentNumber" name="enrollmentNumber" value="<?php echo htmlspecialchars($enrollmentNumber ?? ''); ?>" placeholder="Enter your enrollment number" required>
+                        <span class="input-icon"><i class="fas fa-id-card"></i></span>
+                    </div>
+                    
+                    <div class="form-row">
+                        <label class="form-label" for="course">Course<span class="required">*</span></label>
+                        <input type="text" class="form-input" id="course" name="course" value="<?php echo htmlspecialchars($course ?? ''); ?>" placeholder="Enter your course name" required>
+                        <span class="input-icon"><i class="fas fa-book"></i></span>
+                    </div>
+                    
+                    <div class="form-row">
+                        <label class="form-label" for="semester">Semester<span class="required">*</span></label>
+                        <div class="select-wrapper">
+                            <select class="form-input" id="semester" name="semester" required>
+                                <option value="" disabled <?php echo empty($semester) ? 'selected' : ''; ?>>Select your semester</option>
+                                <?php for ($i = 1; $i <= 10; $i++): ?>
+                                    <option value="<?php echo $i; ?>" <?php echo (isset($semester) && $semester == $i) ? 'selected' : ''; ?>><?php echo $i; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                            <span class="input-icon"><i class="fas fa-calendar-alt"></i></span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <label class="form-label">Upload File<span class="required">*</span></label>
+                        <div class="file-input-container" id="fileDropArea">
+                            <input type="file" id="semFile" name="semFile" accept=".pdf" required>
+                            <div class="file-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <span class="file-label">Drag & Drop your file here or click to browse</span>
+                            <span class="file-helper">Only PDF files are accepted. Maximum file size: 400MB</span>
+                            <div class="file-selected" id="selectedFile">
+                                <p class="file-name" id="fileName"></p>
+                                <p class="file-size" id="fileSize"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-paper-plane"></i> Submit Assignment
+                    </button>
+                    
+                    <div class="form-footer">
+                        <p>Need help? Contact your course instructor or IT support.</p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('submissionForm');
+            const enrollmentField = document.getElementById('enrollmentNumber');
+            const fileInput = document.getElementById('semFile');
+            const fileDropArea = document.getElementById('fileDropArea');
+            const selectedFile = document.getElementById('selectedFile');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            
+            // Format file size
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' bytes';
+                else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+                else return (bytes / 1073741824).toFixed(1) + ' GB';
+            }
+            
+            // Update file info when a file is selected
+            fileInput.addEventListener('change', function() {
+                const file = this.files[0];
+                
+                if (file) {
+                    // Check file type
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    
+                    if (fileExtension !== 'pdf') {
+                        alert('Only PDF files are allowed.');
+                        this.value = '';
+                        selectedFile.classList.remove('active');
+                        return;
+                    }
+                    
+                    // Check file size (400MB)
+                    const maxSize = <?php echo MAX_FILE_SIZE; ?>;
+                    if (file.size > maxSize) {
+                        alert('File size exceeds the maximum allowed size (400MB).');
+                        this.value = '';
+                        selectedFile.classList.remove('active');
+                        return;
+                    }
+                    
+                    // Display file info
+                    fileName.textContent = file.name;
+                    fileSize.textContent = formatFileSize(file.size);
+                    selectedFile.classList.add('active');
+                    fileDropArea.style.borderColor = '#2962ff';
+                } else {
+                    selectedFile.classList.remove('active');
+                    fileDropArea.style.borderColor = '#dde2e8';
+                }
+            });
+            
+            // Enrollment number validation (only numbers)
+            enrollmentField.addEventListener('input', function() {
+                if (!/^[0-9]*$/.test(this.value)) {
+                    alert('Enrollment number accepts only numbers.');
+                    this.value = this.value.replace(/[^0-9]/g, '');
+                    this.classList.add('error');
+                } else {
+                    this.classList.remove('error');
+                }
+            });
+            
+            // Drag and drop functionality
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                fileDropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                fileDropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                fileDropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                fileDropArea.style.borderColor = '#2962ff';
+                fileDropArea.style.backgroundColor = 'rgba(41, 98, 255, 0.05)';
+            }
+            
+            function unhighlight() {
+                fileDropArea.style.borderColor = '#dde2e8';
+                fileDropArea.style.backgroundColor = '';
+            }
+            
+            fileDropArea.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                fileInput.files = files;
+                
+                // Trigger the change event
+                const event = new Event('change');
+                fileInput.dispatchEvent(event);
+            }
+            
+            // Form validation before submit
+            form.addEventListener('submit', function(e) {
+                const studentName = document.getElementById('studentName').value.trim();
+                const enrollmentNumber = enrollmentField.value.trim();
+                const course = document.getElementById('course').value.trim();
+                const semester = document.getElementById('semester').value.trim();
+                const file = fileInput.files[0];
+                
+                if (!studentName) {
+                    e.preventDefault();
+                    alert('Please enter your name.');
+                    return;
+                }
+                
+                if (!enrollmentNumber) {
+                    e.preventDefault();
+                    alert('Please enter your enrollment number.');
+                    return;
+                }
+                
+                if (!/^[0-9]+$/.test(enrollmentNumber)) {
+                    e.preventDefault();
+                    alert('Enrollment number must contain only numbers.');
+                    return;
+                }
+                
+                if (!course) {
+                    e.preventDefault();
+                    alert('Please enter your course.');
+                    return;
+                }
+                
+                if (!semester) {
+                    e.preventDefault();
+                    alert('Please select your semester.');
+                    return;
+                }
+                
+                if (!file) {
+                    e.preventDefault();
+                    alert('Please select a file to upload.');
+                    return;
+                }
+            });
+            
+            // Add focus/blur effects for inputs
+            const inputs = document.querySelectorAll('.form-input');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.parentNode.querySelector('.input-icon').style.color = '#2962ff';
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.parentNode.querySelector('.input-icon').style.color = '#78909c';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
