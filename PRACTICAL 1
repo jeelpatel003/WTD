@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<style>
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: rgb(208, 255, 0);
+    text-align: center;
+    opacity: 0.90;
+
+  }
+
+  th, td {
+    border: 1px solid rgb(0, 0, 0);
+    height: 50px;
+    width: 100px;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  /* Styling for the "BREAK" columns */
+  .break {
+    border: none;
+    background-color: rgb(255, 251, 0);
+    font-weight: bold;
+  }
+
+  h2 {
+    text-align: center;
+  }
+  img {
+    position: absolute;
+    left: 530px;
+    top: 100px;
+    z-index: -1;
+    opacity: 0.8;
+    pointer-events: none;
+}
+</style>
+<body>
+  <img src="Karnavati_University_logo.png" width="300" length="400">
+<h2>KARNAVATI UNIVERSITY</h2>
+
+<h3>STATEMENT OF MARKS AND GRADES</h3>
+<table>
+  <tr>
+    <th>Name: Jeel Patel</th>
+    <th>Father's/Mother's Name: Hitesh Patel</th>
+    <th>Department/College: 07-USCI</th>
+    <th>Enrolment No: 202307030010</th>
+  </tr>
+  <tr>
+    <th>Course Code & Course Name </th>
+    <td>Credit</td>
+    <td>Max</td>
+    <td>Min</td>
+    <td>Obtained</td>
+    <td>Max</td>
+    <td>Min</td>
+    <td>Obtained</td>
+    <td>Total</td>
+    <td>Grade</td>
+  </tr>
+  <tr>
+    <th>23BSMD21- Industury 4.0</th>
+    <td>4</td>
+    <td>50</td>
+    <td>20</td>
+    <td>44</td>
+    <td>50</td>
+    <td>30</td>
+    <td>40</td>
+    <td>88</td>
+    <td>O</td>
+  </tr>
+  <tr>
+    <th>23BSPC21- Python</th>
+    <td>4</td>
+    <td>50</td>
+    <td>20</td>
+    <td>38</td>
+    <td>50</td>
+    <td>20</td>
+    <td>38</td>
+    <td>70</td>
+    <td>A</td>
+  </tr>
+  <tr>
+    <th>23BSPC23- Data Structure and Algorithms</th>
+    <td>4</td>
+    <td>50</td>
+    <td>20</td>
+    <td>44</td>
+    <td>50</td>
+    <td>20</td>
+    <td>35</td>
+    <td>79</td>
+    <td>O</td>
+  </tr>
+  <tr>
+    <th>23BSP22 -Cyber Security and digital forensics</th>
+    <td>4</td>
+    <td>50</td>
+    <td>20</td>
+    <td>34</td>
+    <td>50</td>
+    <td>20</td>
+    <td>40</td>
+    <td>75</td>
+    <td>O</td>
+  </tr>
+  <tr>
+    <th>23BSSE21 -Office Automation</th>
+    <td>2</td>
+    <td>50</td>
+    <td>20</td>
+    <td>34</td>
+    <td>50</td>
+    <td>20</td>
+    <td>40</td>
+    <td>75</td>
+    <td>O</td>
+  </tr>
+  <tr>
+    <th>23BSVA21 -Indian Knowledge System</th>
+    <td>2</td>
+    <td>50</td>
+    <td>20</td>
+    <td>34</td>
+    <td>50</td>
+    <td>20</td>
+    <td>40</td>
+    <td>75</td>
+    <td>O</td>
+  </tr>
+</table>
+
+<p style="text-align: center;">MARKSHEET</p>
+
+</body>
+</html>
